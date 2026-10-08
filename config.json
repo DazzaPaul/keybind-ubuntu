@@ -1,0 +1,44 @@
+{
+  "default_profile": "quick_logins",
+  "profiles": {
+    "quick_logins": {
+      "name": "Quick Logins",
+      "hotkeys": {
+        "ctrl+alt+f": {
+          "app_filter": "firefox",
+          "actions": [
+            {"type": "type", "text": "your_email@example.com"},
+            {"type": "key", "key": "tab"},
+            {"type": "delay", "duration": 0.2},
+            {"type": "type", "text": "your_password_here"},
+            {"type": "key", "key": "enter"}
+          ],
+          "delay": 0.15
+        },
+        "ctrl+alt+g": {
+          "app_filter": "chrome",
+          "actions": [
+            {"type": "type", "text": "account@gmail.com"},
+            {"type": "key", "key": "tab"},
+            {"type": "type", "text": "gmail_password"},
+            {"type": "key", "key": "enter"}
+          ]
+        }
+      }
+    },
+    "shortcuts": {
+      "name": "General Shortcuts",
+      "hotkeys": {
+        "ctrl+alt+t": {
+          "actions": [{"type": "launch", "app": "gnome-terminal"}]
+        },
+        "ctrl+alt+f1": {
+          "actions": [
+            {"type": "type", "text": "Hello World"},
+            {"type": "key", "key": "enter"}
+          ]
+        }
+      }
+    }
+  }
+}
