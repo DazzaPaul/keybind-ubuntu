@@ -1,637 +1,538 @@
 #!/usr/bin/env python3
-"""GUI for Keybind Ubuntu - Configure hotkeys and profiles visually."""
+"""
+GUI for Keybind Ubuntu.
+Lets you:
+- create profiles
+- assign hotkeys
+- create action lists
+- save config
+- enable auto-start
+"""
 
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
 
-from PyQt6.QtCore import Qt, QTimer, QEvent
-from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QPushButton,
     QLabel,
-    QLineEdit,
-    QComboBox,
     QListWidget,
     QListWidgetItem,
+    QComboBox,
+    QPushButton,
+    QLineEdit,
     QDialog,
-    QSpinBox,
-    QDoubleSpinBox,
-    QCheckBox,
-    QMessageBox,
-    QTabWidget,
-    QScrollArea,
-    QFrame,
     QFormLayout,
-    QTextEdit,
+    QMessageBox,
+    QDoubleSpinBox,
+    QSpinBox,
+    QInputDialog,
+    QCheckBox,
 )
-from pynput.keyboard import Listener as KeyListener, Key
+
+from pynput.keyboard import Listener as KeyListener, Key, KeyCode
 
 CONFIG_PATH = Path.home() / ".keybind" / "config.json"
-AUTOSTART_PATH = Path.home() / ".config" / "autostart" / "keybind-ubuntu.desktop"
+AUTO_START_PATH = Path.home() / ".config" / "autostart" / "keybind-ubuntu.desktop"
 
-
-def load_config() -> dict:
-    """Load config or return empty template."""
+def load_config():
     if not CONFIG_PATH.exists():
         return {
             "default_profile": "default",
             "profiles": {
                 "default": {
-                    "name": "Default Profile",
-                    "hotkeys": {},
+                    "name": "Default",
+                    "hotkeys": {}
                 }
-            },
+            }
         }
-
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception as e:
-        print(f"Error loading config: {e}")
-        return {}
+    except Exception:
+        return {
+            "default_profile": "default",
+            "profiles": {
+                "default": {
+                    "name": "Default",
+                    "hotkeys": {}
+                }
+            }
+        }
 
-
-def save_config(config: dict) -> bool:
-    """Save config to JSON file."""
-    try:
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=2)
-        return True
-    except Exception as e:
-        print(f"Error saving config: {e}")
-        return False
-
+def save_config(config):
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
 
 class HotkeyRecorder(QDialog):
-    """Dialog to record a hotkey by pressing keys."""
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Record Hotkey")
+        self.resize(350, 180)
         self.setModal(True)
-        self.setGeometry(100, 100, 400, 200)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Press your desired hotkey combination..."))
-        layout.addWidget(QLabel("(e.g., Ctrl+Alt+F)"))
 
+        label = QLabel("Press the desired hotkey combination.")
         self.hotkey_label = QLabel("Waiting...")
-        self.hotkey_label.setStyleSheet("font-size: 16px; font-weight: bold; color: blue;")
+        self.hotkey_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #0055cc;")
+
+        self.pressed = set()
+        self.recorded = ""
+
+        layout.addWidget(label)
         layout.addWidget(self.hotkey_label)
 
-        self.recorded_hotkey = None
-        self.pressed_keys = set()
-        self.listener = KeyListener(on_press=self.on_key_press, on_release=self.on_key_release)
-        self.listener.start()
-
-        button_layout = QHBoxLayout()
+        btns = QHBoxLayout()
         ok_btn = QPushButton("OK")
         ok_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
 
-        layout.addLayout(button_layout)
         self.setLayout(layout)
 
-    def on_key_press(self, key):
+        self.listener = KeyListener(on_press=self.on_press, on_release=self.on_release)
+        self.listener.start()
+
+    def on_press(self, key):
         try:
             if isinstance(key, Key):
-                key_name = key.name.lower()
+                name = key.name.lower()
             else:
-                key_name = key.char.lower() if key.char else str(key).lower()
-
-            self.pressed_keys.add(key_name)
-            hotkey = "+".join(sorted(self.pressed_keys))
-            self.hotkey_label.setText(hotkey)
-            self.recorded_hotkey = hotkey
-        except:
+                name = key.char.lower() if key.char else str(key).lower()
+            self.pressed.add(name)
+            self.recorded = "+".join(sorted(self.pressed))
+            self.hotkey_label.setText(self.recorded)
+        except Exception:
             pass
 
-    def on_key_release(self, key):
+    def on_release(self, key):
         try:
             if isinstance(key, Key):
-                key_name = key.name.lower()
+                name = key.name.lower()
             else:
-                key_name = key.char.lower() if key.char else str(key).lower()
-            self.pressed_keys.discard(key_name)
-        except:
+                name = key.char.lower() if key.char else str(key).lower()
+            self.pressed.discard(name)
+        except Exception:
             pass
 
     def closeEvent(self, event):
         self.listener.stop()
         super().closeEvent(event)
 
-
 class ActionEditor(QDialog):
-    """Dialog to edit an action."""
-
-    def __init__(self, action: dict = None, parent=None):
+    def __init__(self, action=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit Action")
+        self.resize(500, 300)
         self.setModal(True)
-        self.setGeometry(100, 100, 500, 400)
-        self.action = action or {}
 
-        layout = QFormLayout()
+        self.action = action or {"type": "type", "text": ""}
 
-        # Action type
+        form = QFormLayout()
+
         self.type_combo = QComboBox()
         self.type_combo.addItems(["type", "key", "delay", "click", "move", "launch"])
-        self.type_combo.currentTextChanged.connect(self.update_fields)
-        layout.addRow("Action Type:", self.type_combo)
+        self.type_combo.setCurrentText(self.action.get("type", "type"))
+        form.addRow("Type:", self.type_combo)
 
-        # Text field (for type action)
-        self.text_input = QLineEdit()
+        self.text_edit = QLineEdit(self.action.get("text", ""))
         self.text_label = QLabel("Text:")
-        layout.addRow(self.text_label, self.text_input)
+        form.addRow(self.text_label, self.text_edit)
 
-        # Key field (for key action)
-        self.key_input = QLineEdit()
+        self.key_edit = QLineEdit(self.action.get("key", ""))
         self.key_label = QLabel("Key:")
-        layout.addRow(self.key_label, self.key_input)
+        form.addRow(self.key_label, self.key_edit)
 
-        # Duration field (for delay action)
-        self.duration_spin = QDoubleSpinBox()
-        self.duration_spin.setMinimum(0.1)
-        self.duration_spin.setMaximum(10.0)
-        self.duration_spin.setValue(0.5)
-        self.duration_label = QLabel("Duration:")
-        layout.addRow(self.duration_label, self.duration_spin)
+        self.delay_spin = QDoubleSpinBox()
+        self.delay_spin.setMinimum(0.05)
+        self.delay_spin.setMaximum(10.0)
+        self.delay_spin.setValue(float(self.action.get("duration", 0.2)))
+        self.delay_label = QLabel("Delay:")
+        form.addRow(self.delay_label, self.delay_spin)
 
-        # Button field (for click action)
         self.button_combo = QComboBox()
-        self.button_combo.addItems(["left", "right", "middle"])
+        self.button_combo.addItems(["left", "right"])
+        self.button_combo.setCurrentText(self.action.get("button", "left"))
         self.button_label = QLabel("Button:")
-        layout.addRow(self.button_label, self.button_combo)
+        form.addRow(self.button_label, self.button_combo)
 
-        # X coordinate
         self.x_spin = QSpinBox()
-        self.x_spin.setMinimum(0)
-        self.x_spin.setMaximum(9999)
+        self.x_spin.setValue(int(self.action.get("x", 0)))
         self.x_label = QLabel("X:")
-        layout.addRow(self.x_label, self.x_spin)
+        form.addRow(self.x_label, self.x_spin)
 
-        # Y coordinate
         self.y_spin = QSpinBox()
-        self.y_spin.setMinimum(0)
-        self.y_spin.setMaximum(9999)
+        self.y_spin.setValue(int(self.action.get("y", 0)))
         self.y_label = QLabel("Y:")
-        layout.addRow(self.y_label, self.y_spin)
+        form.addRow(self.y_label, self.y_spin)
 
-        # App field (for launch action)
-        self.app_input = QLineEdit()
+        self.app_edit = QLineEdit(self.action.get("app", ""))
         self.app_label = QLabel("App:")
-        layout.addRow(self.app_label, self.app_input)
+        form.addRow(self.app_label, self.app_edit)
 
-        # Load existing action
-        if action:
-            action_type = action.get("type", "type")
-            self.type_combo.setCurrentText(action_type)
-            self.text_input.setText(action.get("text", ""))
-            self.key_input.setText(action.get("key", ""))
-            self.duration_spin.setValue(action.get("duration", 0.5))
-            self.button_combo.setCurrentText(action.get("button", "left"))
-            self.x_spin.setValue(action.get("x", 0))
-            self.y_spin.setValue(action.get("y", 0))
-            self.app_input.setText(action.get("app", ""))
-
-        self.update_fields()
-
-        # Buttons
-        button_layout = QHBoxLayout()
+        buttons = QHBoxLayout()
         ok_btn = QPushButton("Save")
         ok_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addRow(button_layout)
+        buttons.addWidget(ok_btn)
+        buttons.addWidget(cancel_btn)
 
-        self.setLayout(layout)
+        form.addRow(buttons)
 
-    def update_fields(self):
-        """Show/hide fields based on action type."""
-        action_type = self.type_combo.currentText()
-        self.text_label.setVisible(action_type == "type")
-        self.text_input.setVisible(action_type == "type")
-        self.key_label.setVisible(action_type == "key")
-        self.key_input.setVisible(action_type == "key")
-        self.duration_label.setVisible(action_type == "delay")
-        self.duration_spin.setVisible(action_type == "delay")
-        self.button_label.setVisible(action_type == "click")
-        self.button_combo.setVisible(action_type == "click")
-        self.x_label.setVisible(action_type in ["click", "move"])
-        self.x_spin.setVisible(action_type in ["click", "move"])
-        self.y_label.setVisible(action_type in ["click", "move"])
-        self.y_spin.setVisible(action_type in ["click", "move"])
-        self.app_label.setVisible(action_type == "launch")
-        self.app_input.setVisible(action_type == "launch")
+        self.setLayout(form)
+        self.update_visibility()
 
-    def get_action(self) -> dict:
-        """Get the configured action."""
-        action_type = self.type_combo.currentText()
-        action = {"type": action_type}
+        self.type_combo.currentTextChanged.connect(self.update_visibility)
 
-        if action_type == "type":
-            action["text"] = self.text_input.text()
-        elif action_type == "key":
-            action["key"] = self.key_input.text()
-        elif action_type == "delay":
-            action["duration"] = self.duration_spin.value()
-        elif action_type == "click":
+    def update_visibility(self):
+        t = self.type_combo.currentText()
+
+        self.text_label.setVisible(t == "type")
+        self.text_edit.setVisible(t == "type")
+
+        self.key_label.setVisible(t == "key")
+        self.key_edit.setVisible(t == "key")
+
+        self.delay_label.setVisible(t == "delay")
+        self.delay_spin.setVisible(t == "delay")
+
+        self.button_label.setVisible(t == "click")
+        self.button_combo.setVisible(t == "click")
+
+        self.x_label.setVisible(t in ["click", "move"])
+        self.x_spin.setVisible(t in ["click", "move"])
+
+        self.y_label.setVisible(t in ["click", "move"])
+        self.y_spin.setVisible(t in ["click", "move"])
+
+        self.app_label.setVisible(t == "launch")
+        self.app_edit.setVisible(t == "launch")
+
+    def get_action(self):
+        t = self.type_combo.currentText()
+        action = {"type": t}
+
+        if t == "type":
+            action["text"] = self.text_edit.text()
+        elif t == "key":
+            action["key"] = self.key_edit.text()
+        elif t == "delay":
+            action["duration"] = self.delay_spin.value()
+        elif t == "click":
             action["button"] = self.button_combo.currentText()
             action["x"] = self.x_spin.value()
             action["y"] = self.y_spin.value()
-        elif action_type == "move":
+        elif t == "move":
             action["x"] = self.x_spin.value()
             action["y"] = self.y_spin.value()
-        elif action_type == "launch":
-            action["app"] = self.app_input.text()
+        elif t == "launch":
+            action["app"] = self.app_edit.text()
 
         return action
 
-
 class HotkeyEditor(QDialog):
-    """Dialog to edit a hotkey and its actions."""
-
-    def __init__(self, hotkey_str: str = "", hotkey_config: dict = None, parent=None):
+    def __init__(self, hotkey="", config=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit Hotkey")
+        self.resize(550, 420)
         self.setModal(True)
-        self.setGeometry(100, 100, 600, 500)
 
-        self.hotkey_str = hotkey_str
-        self.hotkey_config = hotkey_config or {"actions": []}
+        self.hotkey_text = hotkey
+        self.config = config or {"actions": []}
 
         layout = QVBoxLayout()
 
-        # Hotkey input
-        hotkey_layout = QHBoxLayout()
-        hotkey_layout.addWidget(QLabel("Hotkey:"))
-        self.hotkey_input = QLineEdit(hotkey_str)
-        hotkey_layout.addWidget(self.hotkey_input)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Hotkey:"))
+        self.hotkey_input = QLineEdit(hotkey)
+        row.addWidget(self.hotkey_input)
         record_btn = QPushButton("Record")
         record_btn.clicked.connect(self.record_hotkey)
-        hotkey_layout.addWidget(record_btn)
-        layout.addLayout(hotkey_layout)
+        row.addWidget(record_btn)
+        layout.addLayout(row)
 
-        # App filter
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("App Filter (optional):"))
-        self.app_filter_input = QLineEdit(self.hotkey_config.get("app_filter", ""))
-        filter_layout.addWidget(self.app_filter_input)
-        layout.addLayout(filter_layout)
+        app_filter_row = QHBoxLayout()
+        app_filter_row.addWidget(QLabel("App Filter (optional):"))
+        self.app_filter_input = QLineEdit(self.config.get("app_filter", ""))
+        app_filter_row.addWidget(self.app_filter_input)
+        layout.addLayout(app_filter_row)
 
-        # Actions list
         layout.addWidget(QLabel("Actions:"))
-        self.actions_list = QListWidget()
-        self.refresh_actions_list()
-        layout.addWidget(self.actions_list)
+        self.action_list = QListWidget()
+        self.refresh_actions()
+        layout.addWidget(self.action_list)
 
-        # Action buttons
-        action_btn_layout = QHBoxLayout()
-        add_action_btn = QPushButton("Add Action")
-        add_action_btn.clicked.connect(self.add_action)
-        edit_action_btn = QPushButton("Edit Action")
-        edit_action_btn.clicked.connect(self.edit_action)
-        delete_action_btn = QPushButton("Delete Action")
-        delete_action_btn.clicked.connect(self.delete_action)
-        action_btn_layout.addWidget(add_action_btn)
-        action_btn_layout.addWidget(edit_action_btn)
-        action_btn_layout.addWidget(delete_action_btn)
-        layout.addLayout(action_btn_layout)
+        btn_row = QHBoxLayout()
+        add_btn = QPushButton("Add")
+        add_btn.clicked.connect(self.add_action)
+        edit_btn = QPushButton("Edit")
+        edit_btn.clicked.connect(self.edit_action)
+        del_btn = QPushButton("Delete")
+        del_btn.clicked.connect(self.delete_action)
+        btn_row.addWidget(add_btn)
+        btn_row.addWidget(edit_btn)
+        btn_row.addWidget(del_btn)
+        layout.addLayout(btn_row)
 
-        # Delay setting
-        delay_layout = QHBoxLayout()
-        delay_layout.addWidget(QLabel("Default Delay (seconds):"))
-        self.delay_spin = QDoubleSpinBox()
-        self.delay_spin.setMinimum(0.01)
-        self.delay_spin.setMaximum(5.0)
-        self.delay_spin.setValue(self.hotkey_config.get("delay", 0.1))
-        delay_layout.addWidget(self.delay_spin)
-        layout.addLayout(delay_layout)
+        delay_row = QHBoxLayout()
+        delay_row.addWidget(QLabel("Delay:"))
+        self.delay_box = QDoubleSpinBox()
+        self.delay_box.setMinimum(0.05)
+        self.delay_box.setMaximum(5.0)
+        self.delay_box.setValue(float(self.config.get("delay", 0.1)))
+        delay_row.addWidget(self.delay_box)
+        layout.addLayout(delay_row)
 
-        # Save/Cancel buttons
-        button_layout = QHBoxLayout()
+        finish_row = QHBoxLayout()
         save_btn = QPushButton("Save")
         save_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(save_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
+        finish_row.addWidget(save_btn)
+        finish_row.addWidget(cancel_btn)
+        layout.addLayout(finish_row)
 
         self.setLayout(layout)
 
     def record_hotkey(self):
-        """Open hotkey recorder."""
-        dialog = HotkeyRecorder(self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            if dialog.recorded_hotkey:
-                self.hotkey_input.setText(dialog.recorded_hotkey)
+        dlg = HotkeyRecorder(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.hotkey_input.setText(dlg.recorded)
 
-    def refresh_actions_list(self):
-        """Refresh the actions list display."""
-        self.actions_list.clear()
-        for i, action in enumerate(self.hotkey_config.get("actions", [])):
-            action_type = action.get("type", "unknown")
-            text = action.get("text", "")[:30]
-            label = f"{i+1}. [{action_type}] {text}"
+    def refresh_actions(self):
+        self.action_list.clear()
+        for action in self.config.get("actions", []):
+            label = action.get("type", "unknown")
+            text = action.get("text", "")
+            if text:
+                label += f" - {text[:30]}"
             item = QListWidgetItem(label)
-            self.actions_list.addItem(item)
+            self.action_list.addItem(item)
 
     def add_action(self):
-        """Add a new action."""
-        dialog = ActionEditor(parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            action = dialog.get_action()
-            self.hotkey_config.setdefault("actions", []).append(action)
-            self.refresh_actions_list()
+        dlg = ActionEditor(parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.config.setdefault("actions", []).append(dlg.get_action())
+            self.refresh_actions()
 
     def edit_action(self):
-        """Edit the selected action."""
-        current_row = self.actions_list.currentRow()
-        if current_row < 0:
-            QMessageBox.warning(self, "Warning", "Please select an action to edit")
+        row = self.action_list.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Warning", "Select an action first.")
             return
-
-        action = self.hotkey_config["actions"][current_row]
-        dialog = ActionEditor(action, parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.hotkey_config["actions"][current_row] = dialog.get_action()
-            self.refresh_actions_list()
+        action = self.config["actions"][row]
+        dlg = ActionEditor(action, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.config["actions"][row] = dlg.get_action()
+            self.refresh_actions()
 
     def delete_action(self):
-        """Delete the selected action."""
-        current_row = self.actions_list.currentRow()
-        if current_row < 0:
-            QMessageBox.warning(self, "Warning", "Please select an action to delete")
+        row = self.action_list.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Warning", "Select an action first.")
             return
+        del self.config["actions"][row]
+        self.refresh_actions()
 
-        del self.hotkey_config["actions"][current_row]
-        self.refresh_actions_list()
-
-    def get_hotkey_config(self) -> tuple[str, dict]:
-        """Get the updated hotkey string and config."""
-        config = {
-            "actions": self.hotkey_config.get("actions", []),
-            "delay": self.delay_spin.value(),
+    def get_result(self):
+        hotkey = self.hotkey_input.text().strip()
+        cfg = {
+            "actions": self.config.get("actions", []),
+            "delay": self.delay_box.value()
         }
-        if self.app_filter_input.text():
-            config["app_filter"] = self.app_filter_input.text().lower()
-
-        return self.hotkey_input.text(), config
-
+        filter_text = self.app_filter_input.text().strip()
+        if filter_text:
+            cfg["app_filter"] = filter_text.lower()
+        return hotkey, cfg
 
 class MainWindow(QMainWindow):
-    """Main GUI window."""
-
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Keybind Ubuntu - Hotkey Manager")
-        self.setGeometry(100, 100, 900, 700)
+        self.setWindowTitle("Keybind Ubuntu - Hotkey Editor")
+        self.resize(800, 500)
 
         self.config = load_config()
-        self.setup_ui()
+        self.build_ui()
         self.refresh_profiles()
-
-    def setup_ui(self):
-        """Set up the user interface."""
-        main_widget = QWidget()
-        main_layout = QVBoxLayout()
-
-        # Profile selection
-        profile_layout = QHBoxLayout()
-        profile_layout.addWidget(QLabel("Profile:"))
-        self.profile_combo = QComboBox()
-        self.profile_combo.currentTextChanged.connect(self.on_profile_changed)
-        profile_layout.addWidget(self.profile_combo)
-
-        add_profile_btn = QPushButton("New Profile")
-        add_profile_btn.clicked.connect(self.add_profile)
-        profile_layout.addWidget(add_profile_btn)
-
-        delete_profile_btn = QPushButton("Delete Profile")
-        delete_profile_btn.clicked.connect(self.delete_profile)
-        profile_layout.addWidget(delete_profile_btn)
-
-        main_layout.addLayout(profile_layout)
-
-        # Hotkeys list
-        main_layout.addWidget(QLabel("Hotkeys:"))
-        self.hotkeys_list = QListWidget()
-        main_layout.addWidget(self.hotkeys_list)
-
-        # Hotkey buttons
-        hotkey_btn_layout = QHBoxLayout()
-        add_hotkey_btn = QPushButton("Add Hotkey")
-        add_hotkey_btn.clicked.connect(self.add_hotkey)
-        hotkey_btn_layout.addWidget(add_hotkey_btn)
-
-        edit_hotkey_btn = QPushButton("Edit Hotkey")
-        edit_hotkey_btn.clicked.connect(self.edit_hotkey)
-        hotkey_btn_layout.addWidget(edit_hotkey_btn)
-
-        delete_hotkey_btn = QPushButton("Delete Hotkey")
-        delete_hotkey_btn.clicked.connect(self.delete_hotkey)
-        hotkey_btn_layout.addWidget(delete_hotkey_btn)
-
-        main_layout.addLayout(hotkey_btn_layout)
-
-        # Auto-start checkbox
-        self.autostart_checkbox = QCheckBox("Auto-start on login")
-        self.autostart_checkbox.setChecked(AUTOSTART_PATH.exists())
-        self.autostart_checkbox.stateChanged.connect(self.toggle_autostart)
-        main_layout.addWidget(self.autostart_checkbox)
-
-        # Save button
-        save_btn = QPushButton("Save & Close")
-        save_btn.clicked.connect(self.save_and_close)
-        main_layout.addWidget(save_btn)
-
-        main_widget.setLayout(main_layout)
-        self.setCentralWidget(main_widget)
-
-    def refresh_profiles(self):
-        """Refresh profile list."""
-        self.profile_combo.blockSignals(True)
-        self.profile_combo.clear()
-        for profile_name in self.config.get("profiles", {}).keys():
-            self.profile_combo.addItem(profile_name)
-        self.profile_combo.blockSignals(False)
-
-        default = self.config.get("default_profile")
-        if default:
-            index = self.profile_combo.findText(default)
-            if index >= 0:
-                self.profile_combo.setCurrentIndex(index)
-
         self.refresh_hotkeys()
 
+    def build_ui(self):
+        central = QWidget()
+        layout = QVBoxLayout()
+
+        profile_row = QHBoxLayout()
+        profile_row.addWidget(QLabel("Profile:"))
+        self.profile_combo = QComboBox()
+        self.profile_combo.currentTextChanged.connect(self.on_profile_changed)
+        profile_row.addWidget(self.profile_combo)
+        add_profile_btn = QPushButton("New Profile")
+        add_profile_btn.clicked.connect(self.add_profile)
+        delete_profile_btn = QPushButton("Delete Profile")
+        delete_profile_btn.clicked.connect(self.delete_profile)
+        profile_row.addWidget(add_profile_btn)
+        profile_row.addWidget(delete_profile_btn)
+        layout.addLayout(profile_row)
+
+        hotkeys_label = QLabel("Hotkeys:")
+        layout.addWidget(hotkeys_label)
+
+        self.hotkey_list = QListWidget()
+        layout.addWidget(self.hotkey_list)
+
+        button_row = QHBoxLayout()
+        add_hotkey_btn = QPushButton("Add Hotkey")
+        add_hotkey_btn.clicked.connect(self.add_hotkey)
+        edit_hotkey_btn = QPushButton("Edit Hotkey")
+        edit_hotkey_btn.clicked.connect(self.edit_hotkey)
+        delete_hotkey_btn = QPushButton("Delete Hotkey")
+        delete_hotkey_btn.clicked.connect(self.delete_hotkey)
+        button_row.addWidget(add_hotkey_btn)
+        button_row.addWidget(edit_hotkey_btn)
+        button_row.addWidget(delete_hotkey_btn)
+        layout.addLayout(button_row)
+
+        self.autostart_checkbox = QCheckBox("Auto-start on login")
+        self.autostart_checkbox.setChecked(AUTO_START_PATH.exists())
+        self.autostart_checkbox.stateChanged.connect(self.toggle_autostart)
+        layout.addWidget(self.autostart_checkbox)
+
+        save_btn = QPushButton("Save")
+        save_btn.clicked.connect(self.save_config)
+        layout.addWidget(save_btn)
+
+        central.setLayout(layout)
+        self.setCentralWidget(central)
+
     def on_profile_changed(self):
-        """Handle profile selection change."""
         self.config["default_profile"] = self.profile_combo.currentText()
         self.refresh_hotkeys()
 
+    def refresh_profiles(self):
+        self.profile_combo.blockSignals(True)
+        self.profile_combo.clear()
+        for name in self.config.get("profiles", {}).keys():
+            self.profile_combo.addItem(name)
+        self.profile_combo.blockSignals(False)
+        default_name = self.config.get("default_profile")
+        if default_name and default_name in self.config.get("profiles", {}):
+            self.profile_combo.setCurrentText(default_name)
+
     def refresh_hotkeys(self):
-        """Refresh hotkeys list for current profile."""
-        self.hotkeys_list.clear()
-        profile_name = self.profile_combo.currentText()
-        if not profile_name:
-            return
-
-        profile = self.config["profiles"].get(profile_name, {})
-        hotkeys = profile.get("hotkeys", {})
-
-        for hotkey_str, hotkey_config in hotkeys.items():
-            actions = hotkey_config.get("actions", [])
-            label = f"{hotkey_str} → {len(actions)} action(s)"
-            item = QListWidgetItem(label)
-            self.hotkeys_list.addItem(item)
+        self.hotkey_list.clear()
+        current_profile = self.profile_combo.currentText()
+        profile = self.config.get("profiles", {}).get(current_profile, {})
+        for hotkey, hotkey_cfg in profile.get("hotkeys", {}).items():
+            count = len(hotkey_cfg.get("actions", []))
+            self.hotkey_list.addItem(f"{hotkey}  ({count} actions)")
 
     def add_profile(self):
-        """Add a new profile."""
-        name, ok = self._get_text_input("New Profile Name:")
-        if ok and name:
-            self.config["profiles"][name] = {"name": name, "hotkeys": {}}
-            self.refresh_profiles()
-            self.profile_combo.setCurrentText(name)
+        name, ok = QInputDialog.getText(self, "New Profile", "Profile name:")
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+        self.config.setdefault("profiles", {})[name] = {"name": name, "hotkeys": {}}
+        self.config["default_profile"] = name
+        self.refresh_profiles()
+        self.profile_combo.setCurrentText(name)
+        self.refresh_hotkeys()
 
     def delete_profile(self):
-        """Delete the current profile."""
-        profile_name = self.profile_combo.currentText()
-        if not profile_name:
+        profile = self.profile_combo.currentText()
+        if not profile:
             return
-
-        reply = QMessageBox.question(
-            self,
-            "Confirm",
-            f"Delete profile '{profile_name}'?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
+        reply = QMessageBox.question(self, "Delete?", f"Delete profile '{profile}'?")
         if reply == QMessageBox.StandardButton.Yes:
-            del self.config["profiles"][profile_name]
+            del self.config["profiles"][profile]
+            if self.config.get("default_profile") == profile:
+                self.config["default_profile"] = next(iter(self.config["profiles"]), "default")
             self.refresh_profiles()
+            self.refresh_hotkeys()
 
     def add_hotkey(self):
-        """Add a new hotkey to current profile."""
-        dialog = HotkeyEditor(parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            hotkey_str, hotkey_config = dialog.get_hotkey_config()
-            if hotkey_str:
-                profile_name = self.profile_combo.currentText()
-                self.config["profiles"][profile_name]["hotkeys"][hotkey_str] = hotkey_config
-                self.refresh_hotkeys()
+        dlg = HotkeyEditor(parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            hotkey, cfg = dlg.get_result()
+            if not hotkey:
+                QMessageBox.warning(self, "Warning", "Hotkey is required.")
+                return
+            current = self.profile_combo.currentText()
+            self.config["profiles"][current]["hotkeys"][hotkey] = cfg
+            self.refresh_hotkeys()
 
     def edit_hotkey(self):
-        """Edit the selected hotkey."""
-        current_row = self.hotkeys_list.currentRow()
-        if current_row < 0:
-            QMessageBox.warning(self, "Warning", "Please select a hotkey to edit")
+        current = self.profile_combo.currentText()
+        row = self.hotkey_list.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Warning", "Select a hotkey.")
             return
-
-        profile_name = self.profile_combo.currentText()
-        hotkeys = self.config["profiles"][profile_name]["hotkeys"]
-        hotkey_str = list(hotkeys.keys())[current_row]
-        hotkey_config = hotkeys[hotkey_str]
-
-        dialog = HotkeyEditor(hotkey_str, hotkey_config, parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            new_hotkey_str, new_config = dialog.get_hotkey_config()
-            del hotkeys[hotkey_str]
-            hotkeys[new_hotkey_str] = new_config
+        keys = list(self.config["profiles"][current]["hotkeys"].keys())
+        hotkey = keys[row]
+        cfg = self.config["profiles"][current]["hotkeys"][hotkey]
+        dlg = HotkeyEditor(hotkey, cfg, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            new_hotkey, new_cfg = dlg.get_result()
+            if not new_hotkey:
+                return
+            del self.config["profiles"][current]["hotkeys"][hotkey]
+            self.config["profiles"][current]["hotkeys"][new_hotkey] = new_cfg
             self.refresh_hotkeys()
 
     def delete_hotkey(self):
-        """Delete the selected hotkey."""
-        current_row = self.hotkeys_list.currentRow()
-        if current_row < 0:
-            QMessageBox.warning(self, "Warning", "Please select a hotkey to delete")
+        current = self.profile_combo.currentText()
+        row = self.hotkey_list.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Warning", "Select a hotkey.")
             return
-
-        profile_name = self.profile_combo.currentText()
-        hotkeys = self.config["profiles"][profile_name]["hotkeys"]
-        hotkey_str = list(hotkeys.keys())[current_row]
-
-        reply = QMessageBox.question(
-            self,
-            "Confirm",
-            f"Delete hotkey '{hotkey_str}'?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            del hotkeys[hotkey_str]
-            self.refresh_hotkeys()
+        keys = list(self.config["profiles"][current]["hotkeys"].keys())
+        hotkey = keys[row]
+        del self.config["profiles"][current]["hotkeys"][hotkey]
+        self.refresh_hotkeys()
 
     def toggle_autostart(self):
-        """Toggle auto-start on login."""
         if self.autostart_checkbox.isChecked():
             self.enable_autostart()
         else:
             self.disable_autostart()
 
     def enable_autostart(self):
-        """Enable auto-start."""
-        AUTOSTART_PATH.parent.mkdir(parents=True, exist_ok=True)
-        script_path = Path(__file__).absolute()
-        content = f"""[Desktop Entry]
-Type=Application
-Name=Keybind Ubuntu
-Comment=Keyboard automation tool
-Exec={sys.executable} {script_path}
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-"""
-        try:
-            AUTOSTART_PATH.write_text(content)
-            QMessageBox.information(self, "Success", "Auto-start enabled")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to enable auto-start: {e}")
+        AUTO_START_PATH.parent.mkdir(parents=True, exist_ok=True)
+        exe = sys.executable
+        script = str(Path(__file__).resolve())
+        content = (
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Keybind Ubuntu\n"
+            "Comment=Keyboard automation tool\n"
+            f"Exec={exe} {script}\n"
+            "Hidden=false\n"
+            "NoDisplay=false\n"
+            "X-GNOME-Autostart-enabled=true\n"
+        )
+        AUTO_START_PATH.write_text(content, encoding="utf-8")
 
     def disable_autostart(self):
-        """Disable auto-start."""
-        try:
-            if AUTOSTART_PATH.exists():
-                AUTOSTART_PATH.unlink()
-            QMessageBox.information(self, "Success", "Auto-start disabled")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to disable auto-start: {e}")
+        if AUTO_START_PATH.exists():
+            AUTO_START_PATH.unlink()
 
-    def save_and_close(self):
-        """Save config and close."""
-        if save_config(self.config):
-            QMessageBox.information(self, "Success", "Configuration saved")
-            self.close()
-        else:
-            QMessageBox.critical(self, "Error", "Failed to save configuration")
-
-    def _get_text_input(self, prompt: str) -> tuple[str, bool]:
-        """Get text input from user."""
-        from PyQt6.QtWidgets import QInputDialog
-        text, ok = QInputDialog.getText(self, "Input", prompt)
-        return text, ok
-
-
-def main():
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
-
+    def save_config(self):
+        save_config(self.config)
+        QMessageBox.information(self, "Saved", "Configuration saved successfully.")
+        self.close()
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    win = MainWindow()
+    win.show()
+    sys.exit(app.exec())
