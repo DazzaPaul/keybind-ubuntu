@@ -1,37 +1,40 @@
 {
-  "default_profile": "quick_logins",
+  "default_profile": "browser_logins",
   "profiles": {
-    "quick_logins": {
-      "name": "Quick Logins",
+    "browser_logins": {
+      "name": "Browser Logins",
       "hotkeys": {
         "ctrl+alt+f": {
           "app_filter": "firefox",
           "actions": [
-            {"type": "type", "text": "your_email@example.com"},
-            {"type": "key", "key": "tab"},
-            {"type": "delay", "duration": 0.2},
-            {"type": "type", "text": "your_password_here"},
-            {"type": "key", "key": "enter"}
+            { "type": "type", "text": "user@example.com" },
+            { "type": "key", "key": "tab" },
+            { "type": "delay", "duration": 0.2 },
+            { "type": "type", "text": "Password123" },
+            { "type": "key", "key": "enter" }
           ],
-          "delay": 0.15
+          "delay": 0.1
         },
         "ctrl+alt+g": {
           "app_filter": "google-chrome",
           "actions": [
-            {"type": "type", "text": "you@gmail.com"},
-            {"type": "key", "key": "tab"},
-            {"type": "type", "text": "your_gmail_password"},
-            {"type": "key", "key": "enter"}
+            { "type": "type", "text": "user@gmail.com" },
+            { "type": "key", "key": "tab" },
+            { "type": "delay", "duration": 0.2 },
+            { "type": "type", "text": "Password123" },
+            { "type": "key", "key": "enter" }
           ],
           "delay": 0.1
         }
       }
     },
-    "shortcuts": {
+    "general_shortcuts": {
       "name": "General Shortcuts",
       "hotkeys": {
         "ctrl+alt+t": {
-          "actions": [{"type": "launch", "app": "gnome-terminal"}],
+          "actions": [
+            { "type": "launch", "app": "gnome-terminal" }
+          ],
           "delay": 0.1
         }
       }

@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """
-GUI for Keybind Ubuntu.
-Lets you:
-- create profiles
-- assign hotkeys
-- create action lists
-- save config
-- enable auto-start
+GUI configuration editor for Keybind Ubuntu.
 """
 
 from __future__ import annotations
@@ -35,41 +29,34 @@ from PyQt6.QtWidgets import (
     QInputDialog,
     QCheckBox,
 )
-
-from pynput.keyboard import Listener as KeyListener, Key, KeyCode
+from pynput.keyboard import Listener as KeyListener, Key
 
 CONFIG_PATH = Path.home() / ".keybind" / "config.json"
 AUTO_START_PATH = Path.home() / ".config" / "autostart" / "keybind-ubuntu.desktop"
+
 
 def load_config():
     if not CONFIG_PATH.exists():
         return {
             "default_profile": "default",
-            "profiles": {
-                "default": {
-                    "name": "Default",
-                    "hotkeys": {}
-                }
-            }
+            "profiles": {"default": {"name": "Default", "hotkeys": {}}},
         }
+
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {
             "default_profile": "default",
-            "profiles": {
-                "default": {
-                    "name": "Default",
-                    "hotkeys": {}
-                }
-            }
+            "profiles": {"default": {"name": "Default", "hotkeys": {}}},
         }
+
 
 def save_config(config):
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
+
 
 class HotkeyRecorder(QDialog):
     def __init__(self, parent=None):
@@ -79,27 +66,24 @@ class HotkeyRecorder(QDialog):
         self.setModal(True)
 
         layout = QVBoxLayout()
-
-        label = QLabel("Press the desired hotkey combination.")
+        self.label = QLabel("Press the desired hotkey combination.")
         self.hotkey_label = QLabel("Waiting...")
         self.hotkey_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #0055cc;")
-
-        self.pressed = set()
-        self.recorded = ""
-
-        layout.addWidget(label)
+        layout.addWidget(self.label)
         layout.addWidget(self.hotkey_label)
 
-        btns = QHBoxLayout()
+        buttons = QHBoxLayout()
         ok_btn = QPushButton("OK")
         ok_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        btns.addWidget(ok_btn)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
+        buttons.addWidget(ok_btn)
+        buttons.addWidget(cancel_btn)
+        layout.addLayout(buttons)
 
         self.setLayout(layout)
+        self.pressed = set()
+        self.recorded = ""
 
         self.listener = KeyListener(on_press=self.on_press, on_release=self.on_release)
         self.listener.start()
@@ -130,15 +114,15 @@ class HotkeyRecorder(QDialog):
         self.listener.stop()
         super().closeEvent(event)
 
+
 class ActionEditor(QDialog):
     def __init__(self, action=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit Action")
-        self.resize(500, 300)
+        self.resize(500, 320)
         self.setModal(True)
 
         self.action = action or {"type": "type", "text": ""}
-
         form = QFormLayout()
 
         self.type_combo = QComboBox()
@@ -188,12 +172,10 @@ class ActionEditor(QDialog):
         cancel_btn.clicked.connect(self.reject)
         buttons.addWidget(ok_btn)
         buttons.addWidget(cancel_btn)
-
         form.addRow(buttons)
 
         self.setLayout(form)
         self.update_visibility()
-
         self.type_combo.currentTextChanged.connect(self.update_visibility)
 
     def update_visibility(self):
@@ -242,6 +224,7 @@ class ActionEditor(QDialog):
 
         return action
 
+
 class HotkeyEditor(QDialog):
     def __init__(self, hotkey="", config=None, parent=None):
         super().__init__(parent)
@@ -249,9 +232,7 @@ class HotkeyEditor(QDialog):
         self.resize(550, 420)
         self.setModal(True)
 
-        self.hotkey_text = hotkey
         self.config = config or {"actions": []}
-
         layout = QVBoxLayout()
 
         row = QHBoxLayout()
@@ -263,28 +244,28 @@ class HotkeyEditor(QDialog):
         row.addWidget(record_btn)
         layout.addLayout(row)
 
-        app_filter_row = QHBoxLayout()
-        app_filter_row.addWidget(QLabel("App Filter (optional):"))
+        app_row = QHBoxLayout()
+        app_row.addWidget(QLabel("App Filter (optional):"))
         self.app_filter_input = QLineEdit(self.config.get("app_filter", ""))
-        app_filter_row.addWidget(self.app_filter_input)
-        layout.addLayout(app_filter_row)
+        app_row.addWidget(self.app_filter_input)
+        layout.addLayout(app_row)
 
         layout.addWidget(QLabel("Actions:"))
         self.action_list = QListWidget()
         self.refresh_actions()
         layout.addWidget(self.action_list)
 
-        btn_row = QHBoxLayout()
+        actions_buttons = QHBoxLayout()
         add_btn = QPushButton("Add")
         add_btn.clicked.connect(self.add_action)
         edit_btn = QPushButton("Edit")
         edit_btn.clicked.connect(self.edit_action)
         del_btn = QPushButton("Delete")
         del_btn.clicked.connect(self.delete_action)
-        btn_row.addWidget(add_btn)
-        btn_row.addWidget(edit_btn)
-        btn_row.addWidget(del_btn)
-        layout.addLayout(btn_row)
+        actions_buttons.addWidget(add_btn)
+        actions_buttons.addWidget(edit_btn)
+        actions_buttons.addWidget(del_btn)
+        layout.addLayout(actions_buttons)
 
         delay_row = QHBoxLayout()
         delay_row.addWidget(QLabel("Delay:"))
@@ -318,8 +299,7 @@ class HotkeyEditor(QDialog):
             text = action.get("text", "")
             if text:
                 label += f" - {text[:30]}"
-            item = QListWidgetItem(label)
-            self.action_list.addItem(item)
+            self.action_list.addItem(QListWidgetItem(label))
 
     def add_action(self):
         dlg = ActionEditor(parent=self)
@@ -348,19 +328,17 @@ class HotkeyEditor(QDialog):
 
     def get_result(self):
         hotkey = self.hotkey_input.text().strip()
-        cfg = {
-            "actions": self.config.get("actions", []),
-            "delay": self.delay_box.value()
-        }
+        cfg = {"actions": self.config.get("actions", []), "delay": self.delay_box.value()}
         filter_text = self.app_filter_input.text().strip()
         if filter_text:
             cfg["app_filter"] = filter_text.lower()
         return hotkey, cfg
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Keybind Ubuntu - Hotkey Editor")
+        self.setWindowTitle("Keybind Ubuntu")
         self.resize(800, 500)
 
         self.config = load_config()
@@ -385,23 +363,21 @@ class MainWindow(QMainWindow):
         profile_row.addWidget(delete_profile_btn)
         layout.addLayout(profile_row)
 
-        hotkeys_label = QLabel("Hotkeys:")
-        layout.addWidget(hotkeys_label)
-
+        layout.addWidget(QLabel("Hotkeys:"))
         self.hotkey_list = QListWidget()
         layout.addWidget(self.hotkey_list)
 
-        button_row = QHBoxLayout()
+        hotkey_buttons = QHBoxLayout()
         add_hotkey_btn = QPushButton("Add Hotkey")
         add_hotkey_btn.clicked.connect(self.add_hotkey)
         edit_hotkey_btn = QPushButton("Edit Hotkey")
         edit_hotkey_btn.clicked.connect(self.edit_hotkey)
         delete_hotkey_btn = QPushButton("Delete Hotkey")
         delete_hotkey_btn.clicked.connect(self.delete_hotkey)
-        button_row.addWidget(add_hotkey_btn)
-        button_row.addWidget(edit_hotkey_btn)
-        button_row.addWidget(delete_hotkey_btn)
-        layout.addLayout(button_row)
+        hotkey_buttons.addWidget(add_hotkey_btn)
+        hotkey_buttons.addWidget(edit_hotkey_btn)
+        hotkey_buttons.addWidget(delete_hotkey_btn)
+        layout.addLayout(hotkey_buttons)
 
         self.autostart_checkbox = QCheckBox("Auto-start on login")
         self.autostart_checkbox.setChecked(AUTO_START_PATH.exists())
@@ -420,11 +396,10 @@ class MainWindow(QMainWindow):
         self.refresh_hotkeys()
 
     def refresh_profiles(self):
-        self.profile_combo.blockSignals(True)
         self.profile_combo.clear()
         for name in self.config.get("profiles", {}).keys():
             self.profile_combo.addItem(name)
-        self.profile_combo.blockSignals(False)
+
         default_name = self.config.get("default_profile")
         if default_name and default_name in self.config.get("profiles", {}):
             self.profile_combo.setCurrentText(default_name)
@@ -441,6 +416,7 @@ class MainWindow(QMainWindow):
         name, ok = QInputDialog.getText(self, "New Profile", "Profile name:")
         if not ok or not name.strip():
             return
+
         name = name.strip()
         self.config.setdefault("profiles", {})[name] = {"name": name, "hotkeys": {}}
         self.config["default_profile"] = name
@@ -452,6 +428,7 @@ class MainWindow(QMainWindow):
         profile = self.profile_combo.currentText()
         if not profile:
             return
+
         reply = QMessageBox.question(self, "Delete?", f"Delete profile '{profile}'?")
         if reply == QMessageBox.StandardButton.Yes:
             del self.config["profiles"][profile]
@@ -477,9 +454,10 @@ class MainWindow(QMainWindow):
         if row < 0:
             QMessageBox.warning(self, "Warning", "Select a hotkey.")
             return
-        keys = list(self.config["profiles"][current]["hotkeys"].keys())
-        hotkey = keys[row]
+
+        hotkey = list(self.config["profiles"][current]["hotkeys"].keys())[row]
         cfg = self.config["profiles"][current]["hotkeys"][hotkey]
+
         dlg = HotkeyEditor(hotkey, cfg, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_hotkey, new_cfg = dlg.get_result()
@@ -495,8 +473,8 @@ class MainWindow(QMainWindow):
         if row < 0:
             QMessageBox.warning(self, "Warning", "Select a hotkey.")
             return
-        keys = list(self.config["profiles"][current]["hotkeys"].keys())
-        hotkey = keys[row]
+
+        hotkey = list(self.config["profiles"][current]["hotkeys"].keys())[row]
         del self.config["profiles"][current]["hotkeys"][hotkey]
         self.refresh_hotkeys()
 
@@ -508,14 +486,13 @@ class MainWindow(QMainWindow):
 
     def enable_autostart(self):
         AUTO_START_PATH.parent.mkdir(parents=True, exist_ok=True)
-        exe = sys.executable
         script = str(Path(__file__).resolve())
         content = (
             "[Desktop Entry]\n"
             "Type=Application\n"
             "Name=Keybind Ubuntu\n"
             "Comment=Keyboard automation tool\n"
-            f"Exec={exe} {script}\n"
+            f"Exec={sys.executable} {script}\n"
             "Hidden=false\n"
             "NoDisplay=false\n"
             "X-GNOME-Autostart-enabled=true\n"
@@ -530,6 +507,7 @@ class MainWindow(QMainWindow):
         save_config(self.config)
         QMessageBox.information(self, "Saved", "Configuration saved successfully.")
         self.close()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
