@@ -7,10 +7,10 @@
         "ctrl+alt+f": {
           "app_filter": "firefox",
           "actions": [
-            { "type": "type", "text": "user@example.com" },
+            { "type": "type", "text": "your_email@example.com" },
             { "type": "key", "key": "tab" },
             { "type": "delay", "duration": 0.2 },
-            { "type": "type", "text": "Password123" },
+            { "type": "type", "text": "your_password_here" },
             { "type": "key", "key": "enter" }
           ],
           "delay": 0.1
@@ -18,10 +18,10 @@
         "ctrl+alt+g": {
           "app_filter": "google-chrome",
           "actions": [
-            { "type": "type", "text": "user@gmail.com" },
+            { "type": "type", "text": "your_email@example.com" },
             { "type": "key", "key": "tab" },
             { "type": "delay", "duration": 0.2 },
-            { "type": "type", "text": "Password123" },
+            { "type": "type", "text": "your_password_here" },
             { "type": "key", "key": "enter" }
           ],
           "delay": 0.1

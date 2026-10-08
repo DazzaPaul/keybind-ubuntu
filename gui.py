@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-GUI configuration editor for Keybind Ubuntu.
-"""
+"""GUI editor for Keybind Ubuntu."""
 
 from __future__ import annotations
 
@@ -41,7 +39,6 @@ def load_config():
             "default_profile": "default",
             "profiles": {"default": {"name": "Default", "hotkeys": {}}},
         }
-
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -72,14 +69,14 @@ class HotkeyRecorder(QDialog):
         layout.addWidget(self.label)
         layout.addWidget(self.hotkey_label)
 
-        buttons = QHBoxLayout()
+        button_row = QHBoxLayout()
         ok_btn = QPushButton("OK")
         ok_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        buttons.addWidget(ok_btn)
-        buttons.addWidget(cancel_btn)
-        layout.addLayout(buttons)
+        button_row.addWidget(ok_btn)
+        button_row.addWidget(cancel_btn)
+        layout.addLayout(button_row)
 
         self.setLayout(layout)
         self.pressed = set()
@@ -119,7 +116,7 @@ class ActionEditor(QDialog):
     def __init__(self, action=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit Action")
-        self.resize(500, 320)
+        self.resize(500, 300)
         self.setModal(True)
 
         self.action = action or {"type": "type", "text": ""}
@@ -165,14 +162,14 @@ class ActionEditor(QDialog):
         self.app_label = QLabel("App:")
         form.addRow(self.app_label, self.app_edit)
 
-        buttons = QHBoxLayout()
+        button_row = QHBoxLayout()
         ok_btn = QPushButton("Save")
         ok_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
-        buttons.addWidget(ok_btn)
-        buttons.addWidget(cancel_btn)
-        form.addRow(buttons)
+        button_row.addWidget(ok_btn)
+        button_row.addWidget(cancel_btn)
+        form.addRow(button_row)
 
         self.setLayout(form)
         self.update_visibility()
@@ -255,17 +252,17 @@ class HotkeyEditor(QDialog):
         self.refresh_actions()
         layout.addWidget(self.action_list)
 
-        actions_buttons = QHBoxLayout()
+        action_buttons = QHBoxLayout()
         add_btn = QPushButton("Add")
         add_btn.clicked.connect(self.add_action)
         edit_btn = QPushButton("Edit")
         edit_btn.clicked.connect(self.edit_action)
         del_btn = QPushButton("Delete")
         del_btn.clicked.connect(self.delete_action)
-        actions_buttons.addWidget(add_btn)
-        actions_buttons.addWidget(edit_btn)
-        actions_buttons.addWidget(del_btn)
-        layout.addLayout(actions_buttons)
+        action_buttons.addWidget(add_btn)
+        action_buttons.addWidget(edit_btn)
+        action_buttons.addWidget(del_btn)
+        layout.addLayout(action_buttons)
 
         delay_row = QHBoxLayout()
         delay_row.addWidget(QLabel("Delay:"))
@@ -328,7 +325,10 @@ class HotkeyEditor(QDialog):
 
     def get_result(self):
         hotkey = self.hotkey_input.text().strip()
-        cfg = {"actions": self.config.get("actions", []), "delay": self.delay_box.value()}
+        cfg = {
+            "actions": self.config.get("actions", []),
+            "delay": self.delay_box.value(),
+        }
         filter_text = self.app_filter_input.text().strip()
         if filter_text:
             cfg["app_filter"] = filter_text.lower()
@@ -367,17 +367,17 @@ class MainWindow(QMainWindow):
         self.hotkey_list = QListWidget()
         layout.addWidget(self.hotkey_list)
 
-        hotkey_buttons = QHBoxLayout()
+        button_row = QHBoxLayout()
         add_hotkey_btn = QPushButton("Add Hotkey")
         add_hotkey_btn.clicked.connect(self.add_hotkey)
         edit_hotkey_btn = QPushButton("Edit Hotkey")
         edit_hotkey_btn.clicked.connect(self.edit_hotkey)
         delete_hotkey_btn = QPushButton("Delete Hotkey")
         delete_hotkey_btn.clicked.connect(self.delete_hotkey)
-        hotkey_buttons.addWidget(add_hotkey_btn)
-        hotkey_buttons.addWidget(edit_hotkey_btn)
-        hotkey_buttons.addWidget(delete_hotkey_btn)
-        layout.addLayout(hotkey_buttons)
+        button_row.addWidget(add_hotkey_btn)
+        button_row.addWidget(edit_hotkey_btn)
+        button_row.addWidget(delete_hotkey_btn)
+        layout.addLayout(button_row)
 
         self.autostart_checkbox = QCheckBox("Auto-start on login")
         self.autostart_checkbox.setChecked(AUTO_START_PATH.exists())

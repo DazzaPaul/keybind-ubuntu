@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""
-Keybind Ubuntu - global hotkey automation for Ubuntu.
-Supports multiple profiles and app filtering.
+"""Keybind Ubuntu - global hotkey automation for Ubuntu.
+
+Features:
+- profile-based hotkeys
+- app filter support
+- typing text and sending keys
+- delays, clicks, mouse moves, and app launches
+- tray icon and GUI configuration support
 """
 
 from __future__ import annotations
@@ -69,9 +74,9 @@ def ensure_config():
                             ],
                             "delay": 0.1,
                         }
-                    }
+                    },
                 }
-            }
+            },
         }
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
@@ -87,7 +92,7 @@ def load_config():
 def parse_hotkey(hotkey):
     if not isinstance(hotkey, str):
         return []
-    return [p.strip().lower() for p in hotkey.split("+") if p.strip()]
+    return [part.strip().lower() for part in hotkey.split("+") if part.strip()]
 
 
 def key_to_name(key):
@@ -162,9 +167,9 @@ def execute_action(action):
     if action_type == "click":
         x = int(action.get("x", 0))
         y = int(action.get("y", 0))
-        mouse.position = (x, y)
         button_name = str(action.get("button", "left")).lower()
         button = Button.left if button_name == "left" else Button.right
+        mouse.position = (x, y)
         mouse.click(button)
         return True
 
@@ -194,7 +199,7 @@ def execute_hotkey(config):
 
     actions = config.get("actions", [])
     if not actions:
-        print("No actions configured for this hotkey.")
+        print("No actions configured.")
         return
 
     default_delay = float(config.get("delay", 0.1))
@@ -245,10 +250,10 @@ def main():
             return
         pressed.add(name)
 
-        for hotkey_set, action_config in hotkey_map.items():
+        for hotkey_set, hotkey_cfg in hotkey_map.items():
             if hotkey_set.issubset(pressed):
                 print(f"Triggered hotkey: {'+'.join(sorted(hotkey_set))}")
-                execute_hotkey(action_config)
+                execute_hotkey(hotkey_cfg)
                 pressed.clear()
                 break
 
