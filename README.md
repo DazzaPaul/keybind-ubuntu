@@ -1,26 +1,46 @@
-# Keybind Ubuntu
+# Keybind Ubuntu - AutoHotkey for Ubuntu
 
-A lightweight keyboard shortcut tool for Ubuntu that fills usernames and passwords automatically so you do not have to type them repeatedly.
+A lightweight keyboard shortcut tool for Ubuntu that auto-fills usernames and passwords with a hotkey. No more typing credentials repeatedly.
 
-This project is intentionally small and focused on a single use case:
-- press a hotkey
-- the app types your username and password into the currently focused field
-- optionally tabs between fields and presses Enter
+## What It Does
 
-## What it does
+Press a hotkey (like `Ctrl+Alt+F`) and the app instantly types your username and password into the active field.
 
-- listens for a global keyboard shortcut such as `Ctrl+Alt+F`
-- types a configured username into the current text field
-- tabs to the next field
-- types the configured password
-- optionally presses Enter
+## Features
 
-## Install
+- ⌨️ Global hotkey listener (even when window is unfocused)
+- 🔐 Store and auto-type credentials
+- ⚡ Lightweight & fast
+- 💾 Simple JSON config
+- 🚀 Auto-start on login (optional)
+
+## Quick Start
 
 ```bash
+git clone https://github.com/DazzaPaul/keybind-ubuntu.git
 cd keybind-ubuntu
 chmod +x install.sh
 ./install.sh
+```
+
+## Configure
+
+Edit `credentials.json`:
+
+```json
+{
+  "default_profile": "work",
+  "profiles": {
+    "work": {
+      "hotkey": "ctrl+alt+f",
+      "username": "your_email@example.com",
+      "password": "your_password",
+      "tab_after_username": true,
+      "enter_after_password": false,
+      "delay": 0.1
+    }
+  }
+}
 ```
 
 ## Run
@@ -30,57 +50,68 @@ source .venv/bin/activate
 python3 keybind.py
 ```
 
-You can also start it directly via:
+Press `Ctrl+Alt+F` when focused on a login field.
 
-```bash
-./install.sh
-```
+## Configuration Options
 
-## Configuration
+| Option | Type | Description |
+|--------|------|-------------|
+| `hotkey` | string | Keyboard shortcut (e.g., `ctrl+alt+f`, `shift+super+p`) |
+| `username` | string | Text to type first |
+| `password` | string | Text to type second |
+| `tab_after_username` | bool | Press Tab between username and password |
+| `enter_after_password` | bool | Press Enter after typing password |
+| `delay` | float | Delay in seconds between actions (default: 0.1) |
 
-Edit `credentials.json` before starting the app.
+## Supported Hotkeys
 
-Example:
+- Modifiers: `ctrl`, `alt`, `shift`, `super` (Windows key)
+- Keys: `a-z`, `0-9`, `f1-f12`, `enter`, `tab`, `space`, `esc`, `up`, `down`, `left`, `right`
+- Format: `ctrl+alt+f` or `shift+super+p`
 
-```json
-{
-  "default_profile": "work",
-  "profiles": {
-    "work": {
-      "hotkey": "ctrl+alt+f",
-      "username": "alice@example.com",
-      "password": "SuperSecretPassword123",
-      "tab_after_username": true,
-      "enter_after_password": false,
-      "delay": 0.1
-    }
-  }
-}
-```
+## Security
 
-### Notes
+⚠️ **Important**: Credentials are stored in plain text. This is convenient but not secure.
 
-- Use a hotkey that is not already used elsewhere on Ubuntu.
-- This is designed to work with X11 sessions.
-- Save credentials locally only if you understand the security tradeoff.
-- For production use, prefer a proper password manager or OS keyring.
-
-## Security note
-
-This app stores credentials in a plain JSON file for simplicity. That is convenient but not secure for production use. For real-world work, consider storing secrets in your OS keyring or in a dedicated password manager.
+- Keep `credentials.json` private
+- Use only on personal machines
+- For sensitive work, consider using a password manager instead
 
 ## Requirements
 
-- Ubuntu 20.04+ or similar Linux desktop
+- Ubuntu 20.04+
 - Python 3.10+
-- X11 session
-- `pynput`
+- X11 session (most Ubuntu systems)
 
 ## Troubleshooting
 
-If the hotkey does not trigger:
+**Hotkey doesn't work?**
+- Make sure the app is running: `python3 keybind.py`
+- Check if hotkey is already used by your system
+- Try a different hotkey combination
+- Ensure you're using X11 (not Wayland-only)
 
-- make sure the app is running in your active desktop session
-- ensure you are using X11, not Wayland-only sessions
-- try a different hotkey
-- check that the terminal is not swallowing the hotkey combination
+**App crashes on start?**
+- Install requirements: `pip install -r requirements.txt`
+- Check that `credentials.json` exists and is valid JSON
+
+## Auto-start on Login
+
+Create a systemd user service or add to your startup:
+
+```bash
+mkdir -p ~/.config/autostart
+cat > ~/.config/autostart/keybind-ubuntu.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Keybind Ubuntu
+Exec=/home/YOUR_USER/keybind-ubuntu/keybind.py
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+EOF
+```
+
+## License
+
+MIT

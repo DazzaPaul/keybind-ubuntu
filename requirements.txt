@@ -1,16 +1,1 @@
-# Keybind Ubuntu
-
-A lightweight keyboard shortcut app for Ubuntu that fills in usernames/passwords for repeated logins.
-
-## Requirements
-
-- Python 3.10+
-- X11 session
-
-```bash
-pip install pynput
-```
-
-## License
-
-MIT
+pynput==1.7.6
